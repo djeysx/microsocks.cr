@@ -22,9 +22,9 @@ class Socks::Request
 
   def initialize(@client : TCPSocket, @auth : String? = nil)
     buf = uninitialized UInt8[3]
-    raise Socks::Error.new("Failed to get command version") unless @client.read_fully?(buf.to_slice)
-    raise Socks::Error.new("Unsupported command version #{buf[0]}") unless buf[0] == Socks::VERSION
-
+    @client.read_fully?(buf.to_slice) || raise Socks::Error.new("Failed to get command version") 
+    buf[0] == Socks::VERSION || raise Socks::Error.new("Unsupported command version #{buf[0]}")
+    
     @version = Socks::VERSION
     @command = buf[1]
     @fqdn = ""
@@ -44,30 +44,30 @@ class Socks::Request
 
   def read_addr_spec
     addr_type = @client.read_byte
-    raise Socks::Error.new("Failed to get command addr_type") unless addr_type
+    addr_type || raise Socks::Error.new("Failed to get command addr_type")
 
     @addr_type = addr_type
 
     case addr_type
     when IPV4
-      raise Socks::Error.new("Failed to get ipv4 address") unless @client.read_fully?(@ipv4.to_slice)
+      @client.read_fully?(@ipv4.to_slice) || raise Socks::Error.new("Failed to get ipv4 address")
     when IPV6
-      raise Socks::Error.new("Failed to get ipv6 address") unless @client.read_fully?(@ipv6.to_slice)
+      @client.read_fully?(@ipv6.to_slice) || raise Socks::Error.new("Failed to get ipv6 address")
     when FQDN
       len = @client.read_byte
-      raise Socks::Error.new("Failed to get FQDN length") unless len
+      len || raise Socks::Error.new("Failed to get FQDN length")
       len = len.to_i
 
       buf = uninitialized UInt8[256]
       slice = Slice.new(buf.to_unsafe, len)
-      raise Socks::Error.new("Failed to get FQDN") unless @client.read_fully?(slice)
+      @client.read_fully?(slice) || raise Socks::Error.new("Failed to get FQDN")
       @fqdn = String.new(slice)
     else
       return false
     end
 
     buf2 = uninitialized UInt8[2]
-    raise Socks::Error.new("Failed to get port") unless @client.read_fully?(buf2.to_slice)
+    @client.read_fully?(buf2.to_slice) || raise Socks::Error.new("Failed to get port")
 
     @port = buf2[0].to_u16 << 8 | buf2[1].to_u16
 
@@ -119,7 +119,8 @@ class Socks::Request
              "#{@ipv4[0]}.#{@ipv4[1]}.#{@ipv4[2]}.#{@ipv4[3]}"
            when FQDN
              @fqdn
-           else
+ #TODO IPV6
+            else
              send_reply(ResponseCode::ADDR_TYPE_NOT_SUPPORTED)
              raise Socks::Error.new("Not supported addr_type #{@addr_type}")
            end

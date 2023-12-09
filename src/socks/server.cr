@@ -2,7 +2,7 @@ require "socket"
 
 class Socks::Server
   def initialize(@listen_host : String, @listen_port : Int32, @debug : Bool = true)
-    @server = TCPServer.new @listen_host, @listen_port
+    @server = TCPServer.new @listen_host, @listen_port, 64, 10, true
   end
 
   def stop!
@@ -19,11 +19,11 @@ class Socks::Server
     # Actually just skip it
 
     num_methods = client.read_byte
-    raise Error.new("Failed to get number of methods") unless num_methods
+    num_methods || raise Error.new("Failed to get number of methods")
 
     num_methods.times do
       method = client.read_byte
-      raise Error.new("Failed to get auth method") unless method
+      method || raise Error.new("Failed to get auth method")
     end
 
     begin
@@ -40,8 +40,8 @@ class Socks::Server
     id_msg = "[SOCKS-#{client.remote_address}]"
 
     version = client.read_byte
-    raise Error.new("Failed to get version byte") unless version
-    raise Error.new("Unsupported SOCKS version #{version}") unless version == Socks::VERSION
+    version || raise Error.new("Failed to get version byte")
+    version == Socks::VERSION || raise Error.new("Unsupported SOCKS version #{version}")
 
     auth = auth(client)
 
