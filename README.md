@@ -1,30 +1,21 @@
-# Socks
+# microSocks
 
-Socks5 server in Crystal. Simple implementation without auth, bind, associate and ipv6.
+Crystal learning project based on kostya/socks with the spirit of microsocks (C lang)
+
+Socks5 server simple implementation without auth, bind and associate.
+
+This server should be usable on low end hardware like Raspberry < 4
 
 ## Installation
 
-
-Add this to your application's `shard.yml`:
-
-```yaml
-dependencies:
-  socks:
-    github: kostya/socks
-```
+shards build
 
 ## Usage
 
-```crystal
-require "socks"
-Socks::Server.new("127.0.0.1", 8888).run
-```
+./microsocksCr port
 
-Run test http-server:
+## Todo
 
-	crystal examples/socks-server.cr -- 9000
-    crystal examples/test-server.cr -- 9001
-
-Run queries:
-
-    curl --socks5 127.0.0.1:9000 127.0.0.1:9001/bytes?n=100
+- Target host in ipv6
+- Refactor internal structure
+- Cross compile to arm32
