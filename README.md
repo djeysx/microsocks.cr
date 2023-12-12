@@ -1,6 +1,6 @@
-# microSocks
+# microSocks.cr
 
-Crystal learning project based on kostya/socks with the spirit of microsocks (C lang)
+Crystal learning project based on kostya/socks
 
 Socks5 server simple implementation without auth, bind and associate.
 
