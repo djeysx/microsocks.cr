@@ -2,7 +2,7 @@ require "socket"
 
 class Socks::Server
   def initialize(@listen_host : String, @listen_port : Int32, @debug : Bool = true)
-    @server = TCPServer.new @listen_host, @listen_port, 64, 10, true
+    @server = TCPServer.new @listen_host, @listen_port, 64
   end
 
   def stop!
@@ -38,6 +38,7 @@ class Socks::Server
 
   def handle(client)
     id_msg = "[SOCKS-#{client.remote_address}]"
+    STDERR.puts("#{id_msg} Accept") if @debug
 
     version = client.read_byte
     version || raise Error.new("Failed to get version byte")
@@ -45,12 +46,12 @@ class Socks::Server
 
     auth = auth(client)
 
-    request = Request.new(client, auth)
+    request = Request.new(client, id_msg, @debug)
     request.handle
 
-    STDERR.puts("#{id_msg} OK") if @debug
+    STDERR.puts("#{id_msg} Close OK") if @debug
   rescue ex : Socks::Error
-    STDERR.puts("#{id_msg} ERR: #{ex.message}") if @debug
+    STDERR.puts("#{id_msg} Close ERR: #{ex.message}") if @debug
   ensure
     client.close
   end

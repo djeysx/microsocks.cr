@@ -20,11 +20,11 @@ class Socks::Request
   @ipv6 : StaticArray(UInt8, 16)
   @command : UInt8
 
-  def initialize(@client : TCPSocket, @auth : String? = nil)
+  def initialize(@client : TCPSocket, @id_msg : String, @debug : Bool = false)
     buf = uninitialized UInt8[3]
-    @client.read_fully?(buf.to_slice) || raise Socks::Error.new("Failed to get command version") 
+    @client.read_fully?(buf.to_slice) || raise Socks::Error.new("Failed to get command version")
     buf[0] == Socks::VERSION || raise Socks::Error.new("Unsupported command version #{buf[0]}")
-    
+
     @version = Socks::VERSION
     @command = buf[1]
     @fqdn = ""
@@ -119,8 +119,8 @@ class Socks::Request
              "#{@ipv4[0]}.#{@ipv4[1]}.#{@ipv4[2]}.#{@ipv4[3]}"
            when FQDN
              @fqdn
- #TODO IPV6
-            else
+             # TODO IPV6
+           else
              send_reply(ResponseCode::ADDR_TYPE_NOT_SUPPORTED)
              raise Socks::Error.new("Not supported addr_type #{@addr_type}")
            end
