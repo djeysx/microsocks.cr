@@ -16,22 +16,19 @@ class Socks::Request
   end
 
   @port : UInt16
-  @ipv4 : StaticArray(UInt8, 4)
-  @ipv6 : StaticArray(UInt8, 16)
   @command : UInt8
+  @fqdn = ""
+  @ipv4 = StaticArray(UInt8, 4).new { 0_u8 }
+  @ipv6 = StaticArray(UInt8, 16).new { 0_u8 }
+  @port = 0_u16
+  @addr_type = 0_u8
 
   def initialize(@client : TCPSocket, @id_msg : String, @debug : Bool = false)
     buf = uninitialized UInt8[3]
     @client.read_fully?(buf.to_slice) || raise Socks::Error.new("Failed to get command version")
     buf[0] == Socks::VERSION || raise Socks::Error.new("Unsupported command version #{buf[0]}")
 
-    @version = Socks::VERSION
     @command = buf[1]
-    @fqdn = ""
-    @ipv4 = StaticArray(UInt8, 4).new { 0_u8 }
-    @ipv6 = StaticArray(UInt8, 16).new { 0_u8 }
-    @port = 0_u16
-    @addr_type = 0_u8
     unless read_addr_spec
       send_reply(ResponseCode::ADDR_TYPE_NOT_SUPPORTED)
       raise Socks::Error.new("Address type not supported #{@addr_type}")
@@ -117,9 +114,34 @@ class Socks::Request
     addr = case @addr_type
            when IPV4
              "#{@ipv4[0]}.#{@ipv4[1]}.#{@ipv4[2]}.#{@ipv4[3]}"
+           when IPV6
+             String.build do |io|
+              io << @ipv6[0].to_s( 16, precision: 2)
+              io << @ipv6[1].to_s( 16, precision: 2)
+              io << ":"
+              io << @ipv6[2].to_s( 16, precision: 2)
+              io << @ipv6[3].to_s( 16, precision: 2)
+              io << ":"
+              io << @ipv6[4].to_s( 16, precision: 2)
+              io << @ipv6[5].to_s( 16, precision: 2)
+              io << ":"
+              io << @ipv6[6].to_s( 16, precision: 2)
+              io << @ipv6[7].to_s( 16, precision: 2)
+              io << ":"
+              io << @ipv6[8].to_s( 16, precision: 2)
+              io << @ipv6[9].to_s( 16, precision: 2)
+              io << ":"
+              io << @ipv6[10].to_s( 16, precision: 2)
+              io << @ipv6[11].to_s( 16, precision: 2)
+              io << ":"
+              io << @ipv6[12].to_s( 16, precision: 2)
+              io << @ipv6[13].to_s( 16, precision: 2)
+              io << ":"
+              io << @ipv6[14].to_s( 16, precision: 2)
+              io << @ipv6[15].to_s( 16, precision: 2)
+             end
            when FQDN
              @fqdn
-             # TODO IPV6
            else
              send_reply(ResponseCode::ADDR_TYPE_NOT_SUPPORTED)
              raise Socks::Error.new("Not supported addr_type #{@addr_type}")
@@ -129,6 +151,7 @@ class Socks::Request
     # HOST_UNREACHABLE
     # CONNECTION_REFUSED
     # TTL_EXPIRED
+    STDERR.puts("#{@id_msg} addr_type:#{@addr_type} addr:#{addr}") if @debug
 
     sock = begin
       TCPSocket.new(addr, @port, dns_timeout: 10.seconds, connect_timeout: 10.seconds)
