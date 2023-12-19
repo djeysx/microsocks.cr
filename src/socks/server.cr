@@ -1,8 +1,8 @@
 require "socket"
 
 class Socks::Server
-  def initialize(@listen_host : String, @listen_port : Int32, @debug : Bool = true)
-    @server = TCPServer.new @listen_host, @listen_port, 64
+  def initialize(@listen_host : String = "::", @listen_port : Int32 = 1080, @debug : Bool = true)
+    @server = TCPServer.new @listen_host, @listen_port, 32
   end
 
   def stop!
@@ -10,6 +10,7 @@ class Socks::Server
   end
 
   def run
+    puts "Listening on #{@listen_host}:#{@listen_port}" if @debug
     loop do
       spawn handle(@server.accept)
     end
@@ -17,9 +18,9 @@ class Socks::Server
 
   def auth(client)
     # Actually just skip it
+    # Only X'00' NO AUTHENTICATION REQUIRED
 
-    num_methods = client.read_byte
-    num_methods || raise Error.new("Failed to get number of methods")
+    num_methods = client.read_byte || raise Error.new("Failed to get number of methods")
 
     num_methods.times do
       method = client.read_byte
@@ -38,20 +39,19 @@ class Socks::Server
 
   def handle(client)
     id_msg = "[SOCKS-#{client.remote_address}]"
-    STDERR.puts("#{id_msg} Accept") if @debug
+    puts("#{id_msg} Accept") if @debug
 
-    version = client.read_byte
-    version || raise Error.new("Failed to get version byte")
+    version = client.read_byte || raise Error.new("Failed to get version byte")
     version == Socks::VERSION || raise Error.new("Unsupported SOCKS version #{version}")
 
-    auth = auth(client)
+    auth(client)
 
     request = Request.new(client, id_msg, @debug)
     request.handle
 
-    STDERR.puts("#{id_msg} Close OK") if @debug
+    puts("#{id_msg} Close OK") if @debug
   rescue ex : Socks::Error
-    STDERR.puts("#{id_msg} Close ERR: #{ex.message}") if @debug
+    puts("#{id_msg} Close ERR: #{ex.message}") if @debug
   ensure
     client.close
   end

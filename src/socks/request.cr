@@ -1,9 +1,18 @@
 class Socks::Request
+  # Commands
   ConnectCommand   = 1_u8
   BindCommand      = 2_u8
   AssociateCommand = 3_u8
 
-  enum ResponseCode
+  # Address types
+  IPV4 = 1
+  FQDN = 3
+  IPV6 = 4
+
+  # IO
+  COPY_BUFFER_SIZE = 8192
+
+  enum ResponseCode : UInt8
     SUCCESS
     FAILURE
     RULE_FAILURE
@@ -15,13 +24,12 @@ class Socks::Request
     ADDR_TYPE_NOT_SUPPORTED
   end
 
-  @port : UInt16
   @command : UInt8
+  @addr_type = 0_u8
+  @port = 0_u16
   @fqdn = ""
   @ipv4 = StaticArray(UInt8, 4).new { 0_u8 }
   @ipv6 = StaticArray(UInt8, 16).new { 0_u8 }
-  @port = 0_u16
-  @addr_type = 0_u8
 
   def initialize(@client : TCPSocket, @id_msg : String, @debug : Bool = false)
     buf = uninitialized UInt8[3]
@@ -35,17 +43,11 @@ class Socks::Request
     end
   end
 
-  IPV4 = 1
-  FQDN = 3
-  IPV6 = 4
-
   def read_addr_spec
-    addr_type = @client.read_byte
-    addr_type || raise Socks::Error.new("Failed to get command addr_type")
+    @addr_type = @client.read_byte || raise Socks::Error.new("Failed to get command addr_type")
+    # @addr_type = addr_type
 
-    @addr_type = addr_type
-
-    case addr_type
+    case @addr_type
     when IPV4
       @client.read_fully?(@ipv4.to_slice) || raise Socks::Error.new("Failed to get ipv4 address")
     when IPV6
@@ -116,29 +118,29 @@ class Socks::Request
              "#{@ipv4[0]}.#{@ipv4[1]}.#{@ipv4[2]}.#{@ipv4[3]}"
            when IPV6
              String.build do |io|
-              io << @ipv6[0].to_s( 16, precision: 2)
-              io << @ipv6[1].to_s( 16, precision: 2)
-              io << ":"
-              io << @ipv6[2].to_s( 16, precision: 2)
-              io << @ipv6[3].to_s( 16, precision: 2)
-              io << ":"
-              io << @ipv6[4].to_s( 16, precision: 2)
-              io << @ipv6[5].to_s( 16, precision: 2)
-              io << ":"
-              io << @ipv6[6].to_s( 16, precision: 2)
-              io << @ipv6[7].to_s( 16, precision: 2)
-              io << ":"
-              io << @ipv6[8].to_s( 16, precision: 2)
-              io << @ipv6[9].to_s( 16, precision: 2)
-              io << ":"
-              io << @ipv6[10].to_s( 16, precision: 2)
-              io << @ipv6[11].to_s( 16, precision: 2)
-              io << ":"
-              io << @ipv6[12].to_s( 16, precision: 2)
-              io << @ipv6[13].to_s( 16, precision: 2)
-              io << ":"
-              io << @ipv6[14].to_s( 16, precision: 2)
-              io << @ipv6[15].to_s( 16, precision: 2)
+               io << @ipv6[0].to_s(16, precision: 2)
+               io << @ipv6[1].to_s(16, precision: 2)
+               io << ":"
+               io << @ipv6[2].to_s(16, precision: 2)
+               io << @ipv6[3].to_s(16, precision: 2)
+               io << ":"
+               io << @ipv6[4].to_s(16, precision: 2)
+               io << @ipv6[5].to_s(16, precision: 2)
+               io << ":"
+               io << @ipv6[6].to_s(16, precision: 2)
+               io << @ipv6[7].to_s(16, precision: 2)
+               io << ":"
+               io << @ipv6[8].to_s(16, precision: 2)
+               io << @ipv6[9].to_s(16, precision: 2)
+               io << ":"
+               io << @ipv6[10].to_s(16, precision: 2)
+               io << @ipv6[11].to_s(16, precision: 2)
+               io << ":"
+               io << @ipv6[12].to_s(16, precision: 2)
+               io << @ipv6[13].to_s(16, precision: 2)
+               io << ":"
+               io << @ipv6[14].to_s(16, precision: 2)
+               io << @ipv6[15].to_s(16, precision: 2)
              end
            when FQDN
              @fqdn
@@ -151,7 +153,7 @@ class Socks::Request
     # HOST_UNREACHABLE
     # CONNECTION_REFUSED
     # TTL_EXPIRED
-    STDERR.puts("#{@id_msg} addr_type:#{@addr_type} addr:#{addr}") if @debug
+    puts("#{@id_msg} addr_type:#{@addr_type} addr:#{addr}") if @debug
 
     sock = begin
       TCPSocket.new(addr, @port, dns_timeout: 10.seconds, connect_timeout: 10.seconds)
@@ -179,7 +181,7 @@ class Socks::Request
   end
 
   private def copy_io(src, dst, ch)
-    IO.copy(src, dst)
+    copy(src, dst)
   rescue IO::Error
   rescue Socket::Error
   rescue IO::TimeoutError
@@ -187,6 +189,17 @@ class Socks::Request
     src.close
     dst.close
     ch.send(nil)
+  end
+
+  # Copy of IO.copy with modified buffer size
+  private def copy(src, dst) : Int64
+    buffer = uninitialized UInt8[COPY_BUFFER_SIZE]
+    count = 0_i64
+    while (len = src.read(buffer.to_slice).to_i32) > 0
+      dst.write buffer.to_slice[0, len]
+      count &+= len
+    end
+    count
   end
 
   def handle_bind
