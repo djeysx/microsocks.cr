@@ -1,5 +1,5 @@
 COMPILE :
-crystal build src/microsocksCr.cr -Os --no-debug --cross-compile --target arm-linux-gnueabihf -o bin/microsocksCr-pi1B+.o
+crystal build src/microsocksCr.cr --release --no-debug --cross-compile --target arm-linux-gnueabihf -o bin/microsocksCr-pi1B+.o
 
 LINK :
 cc microsocksCr-pi1B+.o -o microsocksCr  -rdynamic -lpcre2-8 -lgc -lpthread -levent -lpthread -ldl
